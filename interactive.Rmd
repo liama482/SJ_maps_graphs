@@ -1,0 +1,223 @@
+---
+title: "Sustainable and Equitable Transport and Parking Policy in San Jose, CA"
+author: "Liam Abbate, Cameron Wuethrich, Luke Davies, Lauren Hewitt"
+date: "3/16/2021"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = 'C:/Users/lp2ab/Documents/School/SCU_Year4/RData')
+library(sf)
+library(tidyverse)
+library(tmap)
+library(sp)
+library(tigris)
+library(tidycensus)
+library(dplyr)
+library(tmaptools)
+library(readxl)
+library(stats)
+library(leaflet)
+library(viridis)
+library(shiny)
+```
+
+##	Background: Transportation in the United States
+
+
+Policies related to parking and transportation impact environmental quality, social equity, and economic opportunity through many different pathways. This report seeks to strengthen equity and environmental justice for the Roosevelt Park/Five Wounds (referred to either as “Roosevelt Park/Five Wounds” or “Roosevelt Park” throughout the report) and Spartan-Keyes (referred to either as “Spartan-Keyes” or “Spartan Keyes”) neighborhoods in San Jose, California through an analysis of such policies. One example of the impacts of these policies includes health problems related to traffic pollution, which can range from asthma to heart attacks [(American Lung Association, 2021](https://www.lung.org/clean-air/outdoors/who-is-at-risk/highways)). Another example is the increased likelihood of living near major roadways for members of communities that include racial and ethnic minorities, migrants, and non-English speakers when compared to members of other communities, as determined [by Boehmer et al. (2013)](https://www.cdc.gov/mmwr/preview/mmwrhtml/su6203a8.htm) in their study of traffic-related air pollution. Due to their proximity to busy roadways, it is worth investigating how the communities living within our focus neighborhoods are being impacted and how municipal policy can improve equity and environmental justice for these communities.
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+load("101.RData")
+load("280.RData")
+load("neighborhoods.RData")
+
+tmap_mode("view") #FOR viewing!!!
+map_roads1 <- tm_shape(I280) + tm_lines(col = "black", lwd=5, ) + tm_text("roadlabel", size=3, ymod=2, xmod=-7)
+map_roads2 <- tm_shape(US101) + tm_lines(col = "black", lwd=5) + tm_text("roadlabel", size=3, xmod=148, ymod=-53)
+map_neighborhoods <- tm_shape(neighborhoods) + tm_polygons(col = "MAP_COLORS") + tm_basemap(server = "OpenStreetMap.HOT") + tm_text("name", size=4, xmod=-5)
+map_neighborhoods + map_roads1 + map_roads2
+```
+
+**Figure 1. Boundaries of Roosevelt Park/Five Wounds and Spartan-Keyes Neighborhoods and Their Proximity to Major Freeways**
+
+This report is organized around a sustainability framework that considers equity, defined here as “the state, quality or ideal of being just, impartial and fair” [(Annie E. Casey Foundation, 2020);](https://www.aecf.org/blog/racial-justice-definitions/) environmental sustainability; and economic well-being for all. In addition, our research utilizes an environmental justice framework in order to acknowledge how lower-income communities or communities of color are potentially uniquely impacted by parking and transportation policies. This report includes Five Wounds and several other smaller areas that may informally (e.g. on Google Maps) be considered separate from Roosevelt Park, as part of Roosevelt Park, per the official delineation by the City Council of San Jose.
+
+While interventions related to parking and transportation demand management may be intended to benefit lower-income communities, our study will also analyze whether there are any unintended consequences of such interventions. Such analysis of existing interventions and our final recommendations will help to increase awareness of the negative impacts of these types of policies such that they can be avoided in policy creation and implementation.
+Research Questions
+How do key transportation demand management (TDM) strategies—such as public transportation, transit subsidies, and rideshare programs— affect low-income residents’ travel behavior and economic outcomes?
+How do parking policies affect low-income residents in terms of access to jobs, housing affordability, and other economic costs?
+Based on the findings of the first two research questions, how can the City of San Jose more equitably address parking and transportation management through public policies in the Roosevelt Park/Five Wounds and Spartan-Keyes neighborhoods?
+
+To answer these research questions, we analyze the sustainability of parking and transportation policies in other cities similar to San Jose. **We aim to uncover which strategies are most successful in reducing vehicle use while also promoting equity in low-income communities**. We also conduct focus groups with residents of our focus neighborhoods to gain first-hand knowledge of their experiences, the effects of parking and transportation policies on their lives, and their outlook toward sustainable transportation in San Jose. These conversations help us understand if theories about the success of various policies hold up for the people that are impacted. We pair this information about the experiences of city residents with our analysis of San Jose’s current parking and transportation infrastructure and policies, along with information data regarding the success of strategies from other cities around the country. These methods allow us to generate recommendations of policies regarding parking and transportation while prioritizing equity and reduced strain on the environment.
+
+
+## Commuting Patterns Analysis
+We calculated the percentage of people in each racial/ethnic group who use one of five modes of transportation for their commute, within both Roosevelt Park and Spartan-Keyes (see Figures 5 and 7). Both neighborhoods overwhelmingly use driving alone to work for their commute, with the exception of the Black residents of Spartan-Keyes. Therefore, we have also provided a zoomed-in version of each graph that excludes driving alone, to provide an up-close look at the usage rates for the alternatives to driving alone (see Figures 6 and 8).
+The first two graphs (Figures 5 and 6) demonstrate that Roosevelt Park relies heavily on personal automobiles. More than 67% of all races/ethnicities commute by driving alone, which encompasses from 67.3% of White residents to 80.7% of Asian residents. Carpool is the only other mode of transportation that reaches 11% in any racial group, with as many as 28.7% of Black residents carpooling to work. Biking to work is most common among White residents (10.8%); among all other groups it is less than 3%. Public transit use is frequented by nonnegligable (>1%) amounts of all races/ethnicities using the services, although that ranges from the 10.6% of Latinx residents who commute using public transportation to the 1.5% of Asian residents who commute using public transportation.
+
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+load("Rooseveltgraphing.RData")
+load("SKgraphing.RData")
+
+mytheme <- theme(panel.grid.major = element_line(colour="gray25", size = (0.7)),
+                 panel.grid.minor = element_line(size = (0.2), colour="gray65"))
+
+ylimR = 30
+ylimSK = 40
+transitlevels = c("Carpool", "Public Transit", "Walking", "Bike or Other Means", "Drive Alone")
+Roosevelt$TransitMode <- factor(Roosevelt$TransitMode, transitlevels)
+Spartan_Keyes$TransitMode <- factor(Spartan_Keyes$TransitMode, transitlevels)
+
+alt_Roosevelt <- filter(Roosevelt, TransitMode == "Carpool" | TransitMode == "Public Transit" | TransitMode == "Walking" | TransitMode == "Bike or Other Means")
+alt_SKeyes <- filter(Spartan_Keyes, TransitMode == "Carpool" | TransitMode == "Public Transit" | TransitMode == "Walking" | TransitMode == "Bike or Other Means")
+cbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+RGrouped_chart <- ggplot(Roosevelt, aes(fill=TransitMode, y=Percent, x=Race)) + 
+  geom_bar(position="dodge", stat="identity") +
+  ggtitle("Transit Mode by Race in Roosevelt Park") +
+  scale_fill_manual(values=cbPalette)
+RGrouped_chart + mytheme
+```
+
+**Figure 5. Percent Transit Mode Share by Race/Ethnicity in Roosevelt Park**
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+RGrouped_chart2 <- ggplot(alt_Roosevelt, aes(fill=TransitMode, y=Percent, x=Race)) + 
+  geom_bar(position="dodge", stat="identity") +
+  ggtitle("Alternative Modes of Transit by Race in Roosevelt Park") +
+  scale_y_continuous(limits=c(0,ylimR)) +
+  scale_fill_manual(values=cbPalette)
+RGrouped_chart2 + mytheme
+```
+
+**Figure 6. Percent Alternative Modes of Transit out of all Transit by Race/Ethnicity in Roosevelt Park*
+
+Figures 7 and 8 below demonstrate that Spartan-Keyes overall also relies heavily on single occupancy vehicles (SOVs). More than 60% of residents identifying as White, Asian, Latinx, or any other race/ethnicity commute by driving alone, with 46.3% of Black residents driving alone forming an outlier. Two other bars on the Spartan-Keyes graphs reach 11% in any racial group: 36.1% of Black residents take public transit to work and 11.7% of White residents carpool to work. Biking to work is most common among White residents (7.0%); among all other groups it is less than 4%. Public transit use is frequented by nonnegligable (>3%) amounts of all races/ethnicities using the services, with the 3.5% of residents of other races/ethnicities commuting via public transit proving to be the lowest among the five racial/ethnic groups. Carpooling is also noticeable, with at between 7.8% (Any other race) and 11.7% (White) of all races/ethnicities using that option for their commute; walking also sees use among all groups except for Black residents.
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+SKGrouped_chart <- ggplot(Spartan_Keyes, aes(fill=TransitMode, y=Percent, x=Race)) + 
+  geom_bar(position="dodge", stat="identity") +
+  ggtitle("Transit Mode by Race in Spartan Keyes") +
+  scale_fill_manual(values=cbPalette)
+SKGrouped_chart + mytheme
+```
+
+**Figure 7. Percent Transit Mode Share by Race/Ethnicity in Spartan-Keyes**
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+SKGrouped_chart2 <- ggplot(alt_SKeyes, aes(fill=TransitMode, y=Percent, x=Race)) + 
+  geom_bar(position="dodge", stat="identity") +
+  ggtitle("Alternative Modes of Transit by Race in Spartan Keyes") +
+  scale_y_continuous(limits=c(0,ylimSK)) +
+  scale_fill_manual(values=cbPalette)
+SKGrouped_chart2 + mytheme
+```
+
+**Figure 8. Percent Alternative Modes of Transit out of all Transit by Race/Ethnicity in Spartan-Keyes**
+
+Also using Census data from the ACS Estimates of 2019, Figure 9 below demonstrates that SOV usage also varies within each neighborhood. Census tract 5016 includes slightly less SOV usage (68.9%) than the other three census tracts examined (5014.02, 5014.01, 5031.12), which maintain between 74.5% and 76.8% of commuting residents commuting via SOV. Census tract 5016 lies in northern Spartan-Keyes, but also straddles I-280 to spill over into another neighborhood.
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+load("DrAl.RData")
+map_perc_DrAl <- tm_shape(Tracts_DrAl) + tm_polygons(col = "Percent_Drive_Alone", palette = "YlOrRd", style="quantile") + tm_basemap(leaflet::providers$CartoDB.Positron, group = "CartoDB.Positron")
+map_perc_DrAl
+```
+
+**Figure 9. Percentage of Residents Driving Alone to Work in Roosevelt Park (North) and Spartan Keyes (South)**
+
+
+
+
+## Equity and Environmental Justice Analysis
+
+## Mapping Environmental Justice
+
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+load("CES.RData")
+load("race.RData")
+load("income.RData")
+load("Sktracts.RData")
+load("RPtracts.RData")
+load("SKbound.RData")
+load("RPbound.RData")
+
+income_map<- tm_shape(income) + tm_fill(legend.format=list(fun=function(x) paste0(formatC(x, digits=0, format="f"), "$")), alpha = .7, col="B19013_001E", id = "B19013_001E", title = "Median Income") +
+  tm_shape(RPtracts) + tm_borders(col = "black") +
+  tm_shape(SKtracts) + tm_borders(col = "black") + 
+  tm_compass()+
+  tm_basemap(server = "CartoDB.Positron")
+income_map
+```
+
+**Figure 10. Median Household Income, San Jose, CA**
+
+This map highlights trends in median income across the city of San Jose, with special focus on the neighborhoods of Spartan-Keyes and Roosevelt Park. The average median income for the census tracts within Roosevelt Park is $62,553 and the average median income in Spartan-Keyes is $57,991. Both of these median incomes fall within the second lowest category. 
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+race_map<- tm_shape(race) + tm_fill(legend.format=list(fun=function(x) paste0(formatC(x, digits=0, format="f"), "%")), n = 10, alpha = .7, col="pct", id = "pct", title = "Percentage of Non-White Residents") +
+  tm_shape(RPtracts) + tm_borders(col = "black") +
+  tm_shape(SKtracts) + tm_borders(col = "black") + 
+  tm_compass()+
+  tm_basemap(server = "CartoDB.Positron")
+race_map
+```
+
+**Figure 11. Percentage of Non-White Residents, San Jose, CA**
+
+This map displays the percentage of of non-white residents, as calculated per census tract. The majority of each neighborhood is populated by about 20-30 percent of non-white residents. In Roosevelt Park, the average percentage of African American residents is 4.7%, the average percentage of Indian residents is 0.2%, and the average percentage of Asian residents is roughly 10%. In Spartan Keyes, the average percentage of African American residents is 5.7%, the average percentage of Indian residents is about 0.5%, and the average percentage of Asian residents is roughly 20.8%.
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+pollution_map<- tm_shape(CES) + tm_fill(legend.format=list(fun=function(x) paste0(formatC(x, digits=0, format="f"), "%")),alpha = .7, col="CIscoreP", id = "CIscoreP", n=10, title = "Pollution Burden Percentile") +
+  tm_shape(RPtracts) + tm_borders(col = "black") +
+  tm_shape(SKtracts) + tm_borders(col = "black") + 
+  tm_compass()+
+  tm_basemap(server = "CartoDB.Positron")
+pollution_map
+```
+
+**Figure 12. Overall Pollution Burden, San Jose, CA**
+
+This map adopts Pollution Burden Percentile data, as provided by OEHHA’s CalEnviroScreen tool. This shows that each neighborhood falls roughly within the 60th-80th percentile. **Within the area, air quality due to Diesel Particulate Matter is the one of worst polluters, with each neighborhood falling into the 89th or 90th percentile for Diesel PM pollution.**
+
+```{r eval = TRUE, echo = FALSE, warning = FALSE, message = FALSE}
+load("bart.RData")
+load("Skbus.RData")
+load("RPbus.RData")
+load("lr.RData")
+load("tracts.RData")
+load("pr.RData")
+
+ tdm_map<-  
+    tm_shape(tracts) + 
+    tm_polygons(legend.format=list(fun=function(x) paste0(formatC(x, digits=0, format="f"), "%")),col= "noCar_pct_19", id = "noCar_pct_19", alpha = .8, palette = "Reds", title = "Percentage of Residents Without a Vehicle")+ 
+    tm_shape(SKbus) + tm_dots(col = "black") +
+    tm_shape(RPbus) + tm_dots(col = "black") +
+    tm_shape(lr) + tm_lines(col = "red") +
+    tm_shape(bart) + tm_dots(col = "purple") +
+    tm_shape(pr) + tm_dots(col = "blue") +
+    tm_add_legend(type = "fill", labels = c('Bus Stops','Light Rail Lines','BART Stations','Park and Ride Stations'), col = c("black", "red", "purple", "blue"),
+                  title="Transportation")  + 
+    tm_basemap(server = "CartoDB.Positron")
+  tdm_map
+```
+
+**Figure 13. Transportation Options as Compared to Residents Without a Vehicle**
+*Note.* The BART station indicated in Roosevelt Park is planned for the future, and has not yet been built. 
+
+
+
+## Recommendations
+Through our analysis, we learned that the Roosevelt Park/Five Wounds and Spartan-Keyes neighborhoods are impacted in multiple ways by their location in the center of San Jose. There is a demonstrable effect in air quality for these neighborhoods as a result of their proximity to major freeways. Additionally, anecdotal evidence with neighborhood residents revealed that single occupancy vehicles remain the primary mode of transport for residents, which produces conflicts for parking and driving on neighborhood roads.
+The primary goal of this research is to seek opportunities for encouraging the use of alternative transportation and discouraging the use of single occupancy vehicles. A community can achieve a system of sustainable transportation when it has sufficient resources and internal and external support to choose alternative modes of transportation that are safe, accessible, and convenient. There are many options for alternative transportation, and their suitability depends on the characteristics of the communities in which they are implemented. For example, electric vehicles are beneficial for their reduction in carbon emissions, but should not always be viewed as the solution to a city’s transportation woes, as they do not alleviate the effects of parking and other land-use patterns associated with personal vehicles. The availability of resources that allow for sustainable transportation systems help a community to develop a culture of sustainability in which the community can choose to act in ways that benefit itself and the environment. Based on our research throughout this report, we recommend that the City of San Jose:
+
+1) **Implement improved infrastructure for pedestrians and bicyclists to enhance safety**
+2) **Revisit the designation of 7th Street as a truck route**
+3) **Incentivize use of public transportation by subsidizing transit passes and collaborating with VTA**
+4) **Reduce off-street parking costs and amounts by unbundling parking from residential housing**
